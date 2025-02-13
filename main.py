@@ -13,6 +13,8 @@ import threading
 
 pillow_heif.register_heif_opener()
 thumbnail_cache = {}  # 全局变量用于缓存缩略图
+# 全局变量用于存储选中的缩略图
+selected_thumbnails = []
 
 def select_images():
     global image_paths, image_info
@@ -58,7 +60,7 @@ def create_thumbnail(parent, image_path, index, columns, thumbnail_size, padding
 
     frame = ttk.Frame(parent)
     frame.grid(row=row, column=col, padx=padding, pady=padding)
-
+    frame.image_path = image_path  # 将图片路径存储在 frame 的属性中
     # 先创建并显示文件名和大小标签
     file_name = os.path.basename(image_path)
     file_name = file_name[:12] + "..." if len(file_name) > 15 else file_name
@@ -100,6 +102,25 @@ def create_thumbnail(parent, image_path, index, columns, thumbnail_size, padding
             root.after(0, show_error)
 
     threading.Thread(target=load_thumbnail, daemon=True).start()
+     # 添加鼠标点击事件处理
+    def on_thumbnail_click(event):
+        if event.state & 0x4:  # 检查Ctrl键是否被按下
+            if frame in selected_thumbnails:
+                selected_thumbnails.remove(frame)
+                frame.config(style='TFrame')  # 恢复默认样式
+            else:
+                selected_thumbnails.append(frame)
+                frame.config(style='Selected.TFrame')  # 应用选中样式
+        else:
+            if frame not in selected_thumbnails:
+                selected_thumbnails.clear()
+                selected_thumbnails.append(frame)
+                frame.config(style='Selected.TFrame')  # 应用选中样式
+            else:
+                selected_thumbnails.clear()
+                frame.config(style='TFrame')  # 恢复默认样式
+
+    frame.bind("<Button-1>", on_thumbnail_click)
 def start_processing():
     if not validate_processing():
         return
@@ -229,8 +250,15 @@ def select_output_folder():
         output_folder_label.config(text=f"输出位置: {output_folder}", wraplength=300)  # 设置 wraplength 控制换行
 
 def delete_selected_image():
-    if image_paths:
-        image_paths.pop()
+    global selected_thumbnails
+    if selected_thumbnails:
+        for frame in selected_thumbnails:
+            # 获取图片路径
+            image_path = frame.image_path  # 假设你在创建缩略图时将图片路径存储在frame的属性中
+            image_paths.remove(image_path)
+            thumbnail_cache.pop(image_path, None)
+            frame.destroy()
+        selected_thumbnails.clear()
         show_thumbnails()
         image_count_label.config(text=f"已选择 {len(image_paths)} 张图片")
 
@@ -247,10 +275,12 @@ output_folder = ""
 root=ThemedTk(theme="yaru")  # 使用 ttkthemes 库设置主题
 root.title("图片格式转换工具")
 root.geometry("800x650")
-root.minsize(600, 500)
+root.minsize(600, 650)
 
-# style = ttk.Style()
-# style.theme_use("xpnative")
+# 在主程序中定义选中样式
+style = ttk.Style()
+style.configure('Selected.TFrame', background='blue')  # 选中时的背景颜色
+
 
 main_frame = ttk.Frame(root, padding="10")
 main_frame.pack(fill=tk.BOTH, expand=True)
@@ -277,7 +307,7 @@ clear_button.pack(fill=tk.X, pady=2)
 output_frame = ttk.LabelFrame(control_frame, text="输出选项", padding="5")
 output_frame.pack(fill=tk.X, pady=10)
 
-formats = ["original", "jpg", "heic", "webp", "png", "jxl"]
+formats = ["original", "jpg", "heic","heif", "webp", "jxl"]
 output_format_var = tk.StringVar(value="heic")
 for format in formats:
     ttk.Radiobutton(
