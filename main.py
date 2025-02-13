@@ -244,7 +244,7 @@ image_paths = []
 output_folder = ""
 
 # root = tk.Tk()
-root=ThemedTk(theme="arc")  # 使用 ttkthemes 库设置主题
+root=ThemedTk(theme="yaru")  # 使用 ttkthemes 库设置主题
 root.title("图片格式转换工具")
 root.geometry("800x650")
 root.minsize(600, 500)
@@ -292,22 +292,39 @@ select_output_folder_button.pack(fill=tk.X, pady=5)
 output_folder_label = ttk.Label(output_frame, text="未选择输出位置", anchor=tk.W, width=20)  # 设置 wraplength 控制换行
 output_folder_label.pack(fill=tk.X)
 
+# 创建工具提示
+def create_tooltip(widget):
+    def show_tooltip(event):
+        tooltip = tk.Toplevel()
+        tooltip.wm_overrideredirect(True)  # 移除窗口边框
+        tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+
+        label = ttk.Label(tooltip, text=widget.cget("text"), background="#ffffe0", relief="solid", borderwidth=1)
+        label.pack()
+
+        def hide_tooltip():
+            tooltip.destroy()
+
+        widget.tooltip = tooltip
+        widget.bind('<Leave>', lambda e: hide_tooltip())
+        tooltip.bind('<Leave>', lambda e: hide_tooltip())
+
+    widget.bind('<Enter>', show_tooltip)
+
+create_tooltip(output_folder_label)
+
 # 在 output_frame 中添加滑块控件
 compression_label = ttk.Label(output_frame, text="压缩质量 (100% 不压缩):")
 compression_label.pack(fill=tk.X, pady=2)
 
-# 创建一个框架用于放置滑块和百分比值
-compression_row_frame = ttk.Frame(output_frame)
-compression_row_frame.pack(fill=tk.X, pady=5)
-
-# 添加滑块到框架中
-compression_scale = ttk.Scale(compression_row_frame, from_=25, to=100, orient=tk.HORIZONTAL)
+# 添加滑块
+compression_scale = ttk.Scale(output_frame, from_=25, to=100, orient=tk.HORIZONTAL)
 compression_scale.set(100)  # 默认设置为100% (不压缩)
-compression_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)  # 滑块靠左，填充剩余空间
+compression_scale.pack(side=tk.TOP, fill=tk.X, expand=True)  # 滑块占据整个宽度
 
-# 添加百分比值标签到框架中，放在滑块的右侧
-compression_value_label = ttk.Label(compression_row_frame, text="100%")
-compression_value_label.pack(side=tk.RIGHT, padx=(10, 0))  # 标签靠右，并添加一些左边距
+# 添加百分比值标签，放在滑块的下方
+compression_value_label = ttk.Label(output_frame, text="100%")
+compression_value_label.pack(side=tk.BOTTOM)  # 放在滑块的下方
 
 # 定义一个函数用于更新滑块值的显示
 def update_compression_value(event):
