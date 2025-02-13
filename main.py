@@ -59,35 +59,47 @@ def create_thumbnail(parent, image_path, index, columns, thumbnail_size, padding
     frame = ttk.Frame(parent)
     frame.grid(row=row, column=col, padx=padding, pady=padding)
 
-    try:
-        # 检查缓存中是否已有缩略图
-        if image_path in thumbnail_cache:
-            img_tk = thumbnail_cache[image_path]
-        else:
-            with Image.open(image_path) as img:
-                img.thumbnail((thumbnail_size, thumbnail_size))
-                img_tk = ImageTk.PhotoImage(img)
-                thumbnail_cache[image_path] = img_tk  # 缓存缩略图
+    # 先创建并显示文件名和大小标签
+    file_name = os.path.basename(image_path)
+    file_name = file_name[:12] + "..." if len(file_name) > 15 else file_name
+    file_size = image_info[image_path]
+    if file_size < 1024:
+        size_str = f"{file_size} B"
+    elif file_size < 1024 * 1024:
+        size_str = f"{file_size / 1024:.1f} KB"
+    else:
+        size_str = f"{file_size / (1024 * 1024):.1f} MB"
 
-        thumbnail_label = ttk.Label(frame, image=img_tk)
-        thumbnail_label.image = img_tk
-        thumbnail_label.pack()
+    # 创建一个临时的占位标签
+    thumbnail_label = ttk.Label(frame, text="加载中...", width=thumbnail_size//10)
+    thumbnail_label.pack()
+    
+    text_label = ttk.Label(frame, text=f"{file_name} ({size_str})", wraplength=thumbnail_size)
+    text_label.pack()
 
-        # 获取文件大小并格式化
-        file_size = image_info[image_path]  # 使用预加载的文件大小
-        if file_size < 1024:
-            size_str = f"{file_size} B"
-        elif file_size < 1024 * 1024:
-            size_str = f"{file_size / 1024:.1f} KB"
-        else:
-            size_str = f"{file_size / (1024 * 1024):.1f} MB"
+    # 使用线程异步加载缩略图
+    def load_thumbnail():
+        try:
+            if image_path in thumbnail_cache:
+                img_tk = thumbnail_cache[image_path]
+            else:
+                with Image.open(image_path) as img:
+                    img.thumbnail((thumbnail_size, thumbnail_size))
+                    img_tk = ImageTk.PhotoImage(img)
+                    thumbnail_cache[image_path] = img_tk
 
-        file_name = os.path.basename(image_path)
-        file_name = file_name[:12] + "..." if len(file_name) > 15 else file_name
-        ttk.Label(frame, text=f"{file_name} ({size_str})", wraplength=thumbnail_size).pack()
-    except Exception:
-        ttk.Label(frame, text="加载失败").pack()
+            # 使用 after 方法在主线程中更新 UI
+            def update_thumbnail():
+                thumbnail_label.configure(image=img_tk, text="")
+                thumbnail_label.image = img_tk
+            
+            root.after(0, update_thumbnail)
+        except Exception:
+            def show_error():
+                thumbnail_label.configure(text="加载失败")
+            root.after(0, show_error)
 
+    threading.Thread(target=load_thumbnail, daemon=True).start()
 def start_processing():
     if not validate_processing():
         return
@@ -123,22 +135,83 @@ def validate_processing():
 def process_single_image(image_path, output_format, current, total):
     try:
         file_name = os.path.splitext(os.path.basename(image_path))[0]
-        compression_quality = int(compression_scale.get())  # 获取滑块的值
+        compression_quality = int(compression_scale.get())
 
         if output_format == "original":
             output_path = os.path.join(output_folder, os.path.basename(image_path))
+        else:
+            output_path = os.path.join(output_folder, f"{file_name}.{output_format}")
+
+        # 检查文件是否已存在
+        if os.path.exists(output_path):
+            action = handle_file_conflict(output_path)
+            if action == "skip":
+                update_progress(current, total)
+                return
+            elif action == "cancel":
+                raise Exception("操作已取消")
+            # action == "overwrite" 时继续执行
+
+        if output_format == "original" and compression_quality == 100:
             shutil.copy2(image_path, output_path)
         else:
             with Image.open(image_path) as img:
-                output_path = os.path.join(output_folder, f"{file_name}.{output_format}")
-                if compression_quality < 100:  # 如果压缩质量小于100%，则进行压缩
+                if compression_quality < 100:
                     img.save(output_path, quality=compression_quality)
                 else:
-                    img.save(output_path)  # 否则不压缩
+                    img.save(output_path)
 
         update_progress(current, total)
     except Exception as e:
         messagebox.showerror("错误", f"处理图片 {image_path} 时出错: {str(e)}")
+
+def handle_file_conflict(file_path):
+    class ConflictDialog(tk.Toplevel):
+        def __init__(self, parent):
+            super().__init__(parent)
+            self.result = None
+            self.apply_to_all = tk.BooleanVar()
+            
+            self.title("文件已存在")
+            self.geometry("400x150")
+            self.resizable(False, False)
+            
+            message = f"文件 '{os.path.basename(file_path)}' 已存在，要如何处理？"
+            ttk.Label(self, text=message, wraplength=380).pack(pady=10, padx=10)
+            
+            ttk.Checkbutton(self, text="应用到所有文件", variable=self.apply_to_all).pack()
+            
+            btn_frame = ttk.Frame(self)
+            btn_frame.pack(pady=10)
+            
+            ttk.Button(btn_frame, text="覆盖", command=lambda: self.set_result("overwrite")).pack(side=tk.LEFT, padx=5)
+            ttk.Button(btn_frame, text="跳过", command=lambda: self.set_result("skip")).pack(side=tk.LEFT, padx=5)
+            ttk.Button(btn_frame, text="取消", command=lambda: self.set_result("cancel")).pack(side=tk.LEFT, padx=5)
+            
+            self.transient(parent)
+            self.grab_set()
+            parent.wait_window(self)
+        
+        def set_result(self, value):
+            self.result = (value, self.apply_to_all.get())
+            self.destroy()
+
+    # 如果已经有全局决定，直接返回
+    if hasattr(handle_file_conflict, 'global_action'):
+        return handle_file_conflict.global_action
+
+    # 显示对话框
+    dialog = ConflictDialog(root)
+    if dialog.result is None:
+        return "cancel"
+    
+    action, apply_to_all = dialog.result
+    
+    # 如果选择了"应用到所有文件"，保存全局决定
+    if apply_to_all:
+        handle_file_conflict.global_action = action
+    
+    return action
 
 def update_progress(current, total):
     progress = (current / total) * 100
