@@ -113,10 +113,9 @@ def start_processing():
 def process_images(output_format, total_images):
     for i, image_path in enumerate(image_paths, start=1):
         process_single_image(image_path, output_format, i, total_images)
-    messagebox.showinfo("完成", "图片处理完成")
     reset_progress()
-    # 弹出提示框，询问是否打开输出目录
-    if messagebox.askyesno("打开目录", "图片处理完成，是否打开输出目录？"):
+    # 合并提示信息和询问信息
+    if messagebox.askyesno("完成", "图片处理完成，是否打开输出目录？"):
         if os.name == 'nt':  # Windows
             os.startfile(output_folder)
         else:  # macOS 或 Linux
