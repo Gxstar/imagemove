@@ -5,7 +5,6 @@ from ttkthemes import ThemedTk
 import math
 from PIL import Image, ImageTk
 import pillow_heif
-import pillow_jxl
 import os
 import subprocess
 import shutil
@@ -29,7 +28,7 @@ class ImageProcessor:
         self.image_paths = list(
             filedialog.askopenfilenames(
                 filetypes=[
-                    ("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.jxl;*.avif")
+                    ("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.avif")
                 ]
             )
         )
@@ -242,10 +241,11 @@ class ImageProcessor:
                 shutil.copy2(image_path, output_path)
             else:
                 with Image.open(image_path) as img:
+                    exif_data = img.info.get("exif")  # 获取原始 EXIF 数据
                     if compression_quality < 100:
-                        img.save(output_path, quality=compression_quality)
+                        img.save(output_path, quality=compression_quality,exif=exif_data) if output_format=="webp" else img.save(output_path, quality=compression_quality)
                     else:
-                        img.save(output_path)
+                        img.save(output_path,lossless=True,exif=exif_data) if output_format=="webp" else img.save(output_path,lossless=True)
 
             self.update_progress(current, total)
         except Exception as e:
@@ -443,7 +443,7 @@ clear_button.pack(fill=tk.X, pady=2)
 output_frame = ttk.LabelFrame(control_frame, text="输出选项", padding="5")
 output_frame.pack(fill=tk.X, pady=10)
 
-formats = ["original", "jpg", "heic", "heif", "webp", "jxl", "avif"]
+formats = ["original", "jpg", "heic", "heif", "webp", "avif"]
 output_format_var = tk.StringVar(value="original")
 for format in formats:
     ttk.Radiobutton(

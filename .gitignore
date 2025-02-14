@@ -35,6 +35,7 @@ pip-selfcheck.json
 dist/
 build/
 *.egg-info/
+out/
 
 # 配置文件（如果不想追踪敏感配置）
 config.ini
