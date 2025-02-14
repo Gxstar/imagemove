@@ -12,6 +12,7 @@ import shutil
 import threading
 
 pillow_heif.register_heif_opener()
+pillow_heif.register_avif_opener()
 
 class ImageProcessor:
     def __init__(self):
@@ -22,6 +23,8 @@ class ImageProcessor:
         self.image_info = {}
     
     def select_images(self):
+        # 清除已选中的缩略图列表，避免引用已被销毁的 frame
+        self.selected_thumbnails.clear()
         self.image_paths = list(filedialog.askopenfilenames(filetypes=[("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.jxl")]))
         if self.image_paths:
             self.image_info = {path: os.path.getsize(path) for path in self.image_paths}
@@ -36,25 +39,27 @@ class ImageProcessor:
             return
 
         thumbnail_size = 120
-        padding = 10
+        padding = 5
         frame_width = thumbnail_frame.winfo_width() or 600
-        columns = max(1, (frame_width - padding) // (thumbnail_size + padding))
+        scrollbar_width = 20  # 滚动条的宽度
+        columns = max(1, (frame_width - padding - scrollbar_width) // (thumbnail_size + padding))
 
         canvas = tk.Canvas(thumbnail_frame)
         scrollbar = ttk.Scrollbar(thumbnail_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
 
-        # 将 scrollable_frame 添加到 canvas
+        # 设置 scrollable_frame 的宽度
+        scrollable_frame.update_idletasks()
+        scrollable_frame.config(width=frame_width - scrollbar_width)
+
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        # 配置滚动区域
         def on_configure(event):
             canvas.configure(scrollregion=canvas.bbox("all"))
 
         scrollable_frame.bind("<Configure>", on_configure)
 
-        # 确保 canvas 和 scrollable_frame 不阻止事件传递
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
@@ -62,11 +67,13 @@ class ImageProcessor:
         for index, image_path in enumerate(self.image_paths):
             self.create_thumbnail(scrollable_frame, image_path, index, columns, thumbnail_size, padding)
 
+        # 强制刷新布局
+        thumbnail_frame.update_idletasks()
     def create_thumbnail(self, parent, image_path, index, columns, thumbnail_size, padding):
         row = index // columns
         col = index % columns
 
-        frame = ttk.Frame(parent)
+        frame = ttk.Frame(parent,style='TFrame',padding=3)  # 外层padding，选中时会变成蓝色边框
         frame.grid(row=row, column=col, padx=padding, pady=padding)
         frame.image_path = image_path
 
@@ -78,7 +85,7 @@ class ImageProcessor:
         thumbnail_label = ttk.Label(frame, text="加载中...", width=thumbnail_size//10)
         thumbnail_label.pack()
 
-        text_label = ttk.Label(frame, text=f"{file_name} ({size_str})", wraplength=thumbnail_size)
+        text_label = ttk.Label(frame, text=f"{file_name} ({size_str})", wraplength=thumbnail_size,justify='center',padding=(0, 2, 0, 2),style='TLabel')  # 文字上下添加间距
         text_label.pack()
 
         def load_thumbnail():
@@ -105,24 +112,35 @@ class ImageProcessor:
         threading.Thread(target=load_thumbnail, daemon=True).start()
 
         def on_thumbnail_click(event):
-            print("点击了缩略图")
-            if event.state & 0x4:  # 检查Ctrl键是否被按下
-                if frame in self.selected_thumbnails:
-                    self.selected_thumbnails.remove(frame)
+            if event.state & 0x4:  # Ctrl键按下
+                if frame in image_processor.selected_thumbnails:
+                    # 取消选中
+                    image_processor.selected_thumbnails.remove(frame)
                     frame.config(style='TFrame')
+                    for child in frame.winfo_children():
+                        if isinstance(child, ttk.Label):
+                            child.config(style='TLabel')  # 恢复标签样式
                 else:
-                    self.selected_thumbnails.append(frame)
+                    # 选中
+                    image_processor.selected_thumbnails.append(frame)
                     frame.config(style='Selected.TFrame')
+                    for child in frame.winfo_children():
+                        if isinstance(child, ttk.Label):
+                            child.config(style='Selected.TLabel')  # 更新标签样式
             else:
-                if frame not in self.selected_thumbnails:
-                    self.selected_thumbnails.clear()
-                    for f in self.selected_thumbnails:
-                        f.config(style='TFrame')
-                    self.selected_thumbnails.append(frame)
-                    frame.config(style='Selected.TFrame')
-                else:
-                    self.selected_thumbnails.clear()
-                    frame.config(style='TFrame')
+                # 清除所有选中
+                for f in image_processor.selected_thumbnails:
+                    f.config(style='TFrame')
+                    for child in f.winfo_children():
+                        if isinstance(child, ttk.Label):
+                            child.config(style='TLabel')
+                image_processor.selected_thumbnails.clear()
+                # 选中当前
+                image_processor.selected_thumbnails.append(frame)
+                frame.config(style='Selected.TFrame')
+                for child in frame.winfo_children():
+                    if isinstance(child, ttk.Label):
+                        child.config(style='Selected.TLabel')
 
         # 绑定点击事件到 frame
         frame.bind("<Button-1>", on_thumbnail_click)
@@ -286,14 +304,42 @@ def update_compression_value(event):
     value = int(compression_scale.get())
     compression_value_label.config(text=f"{value}%")
 
+def select_thumbnail(self, event):
+    frame = event.widget.master
+    if frame not in self.selected_thumbnails:
+        self.selected_thumbnails.append(frame)
+        frame.configure(style='Selected.TFrame')
+        for child in frame.winfo_children():
+            if isinstance(child, ttk.Label):
+                child.configure(style='Selected.TLabel')  # 更新标签样式
+    else:
+        self.selected_thumbnails.remove(frame)
+        frame.configure(style='TFrame')
+        for child in frame.winfo_children():
+            if isinstance(child, ttk.Label):
+                child.configure(style='TLabel')  # 恢复默认样式
+
 root = ThemedTk(theme="yaru")
 root.title("图片格式转换工具")
-root.geometry("800x650")
-root.minsize(600, 650)
+root.geometry("800x700")
+root.minsize(600, 700)
 
+# 在样式配置部分增加带边框和padding的选中样式
 style = ttk.Style()
-style.configure('Selected.TFrame', background='#add8e6')
-style.map('Selected.TFrame', background=[('selected', '#add8e6')], bordercolor=[('selected', '#0000ff')])
+style.configure('TFrame', padding=5)  # 给所有缩略图容器添加默认padding
+style.configure('Selected.TFrame', 
+               background='#e5f3ff',  # 更浅的蓝色背景
+               bordercolor='#0078d4',  # Windows标志性蓝色
+               borderwidth=1,         # 更明显的边框
+               relief='solid',        # 实线边框
+               padding=3)             # 内层padding营造层次感
+style.configure('TLabel', 
+               background=style.lookup('TFrame', 'background'),  # 继承 TFrame 背景色
+               padding=2)  # 可选，增加内边距
+style.configure('Selected.TLabel', 
+               background='#e5f3ff',  # 与 Selected.TFrame 背景色一致
+               padding=2)            # 可选，增加内边距
+
 
 image_processor = ImageProcessor()
 
@@ -322,8 +368,8 @@ clear_button.pack(fill=tk.X, pady=2)
 output_frame = ttk.LabelFrame(control_frame, text="输出选项", padding="5")
 output_frame.pack(fill=tk.X, pady=10)
 
-formats = ["original", "jpg", "heic", "heif", "webp", "jxl"]
-output_format_var = tk.StringVar(value="heic")
+formats = ["original", "jpg", "heic", "heif", "webp", "jxl","avif"]
+output_format_var = tk.StringVar(value="original")
 for format in formats:
     ttk.Radiobutton(
         output_frame,
