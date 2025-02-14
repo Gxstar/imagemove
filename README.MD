@@ -17,6 +17,13 @@
 - Windows 7+/macOS 10.12+/Linux（需GUI环境）
 - Python 3.8+
 
-### 依赖库
+### 安装依赖库
 ```bash
-pip install pillow ttkthemes pillow_heif pillow-jxl-plugin
+### 打包命令
+
+nuitka --standalone --follow-imports --enable-plugin=tk-inter --include-module=PIL --include-package-data=ttkthemes --include-package=ttkthemes --windows-disable-console --onefile --output-dir=out main.py
+
+### 依赖库
+
+pip install pillow ttkthemes pillow_heif
+
