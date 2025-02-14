@@ -14,6 +14,7 @@ import threading
 pillow_heif.register_heif_opener()
 pillow_heif.register_avif_opener()
 
+
 class ImageProcessor:
     def __init__(self):
         self.image_paths = []
@@ -21,11 +22,17 @@ class ImageProcessor:
         self.thumbnail_cache = {}
         self.selected_thumbnails = []
         self.image_info = {}
-    
+
     def select_images(self):
         # 清除已选中的缩略图列表，避免引用已被销毁的 frame
         self.selected_thumbnails.clear()
-        self.image_paths = list(filedialog.askopenfilenames(filetypes=[("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.jxl")]))
+        self.image_paths = list(
+            filedialog.askopenfilenames(
+                filetypes=[
+                    ("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.jxl")
+                ]
+            )
+        )
         if self.image_paths:
             self.image_info = {path: os.path.getsize(path) for path in self.image_paths}
             image_count_label.config(text=f"已选择 {len(self.image_paths)} 张图片")
@@ -42,10 +49,14 @@ class ImageProcessor:
         padding = 5
         frame_width = thumbnail_frame.winfo_width() or 600
         scrollbar_width = 20  # 滚动条的宽度
-        columns = max(1, (frame_width - padding - scrollbar_width) // (thumbnail_size + padding))
+        columns = max(
+            1, (frame_width - padding - scrollbar_width) // (thumbnail_size + padding)
+        )
 
         canvas = tk.Canvas(thumbnail_frame)
-        scrollbar = ttk.Scrollbar(thumbnail_frame, orient="vertical", command=canvas.yview)
+        scrollbar = ttk.Scrollbar(
+            thumbnail_frame, orient="vertical", command=canvas.yview
+        )
         scrollable_frame = ttk.Frame(canvas)
 
         # 设置 scrollable_frame 的宽度
@@ -65,27 +76,49 @@ class ImageProcessor:
 
         # 创建缩略图
         for index, image_path in enumerate(self.image_paths):
-            self.create_thumbnail(scrollable_frame, image_path, index, columns, thumbnail_size, padding)
+            self.create_thumbnail(
+                scrollable_frame, image_path, index, columns, thumbnail_size, padding
+            )
 
         # 强制刷新布局
         thumbnail_frame.update_idletasks()
-    def create_thumbnail(self, parent, image_path, index, columns, thumbnail_size, padding):
+
+    def create_thumbnail(
+        self, parent, image_path, index, columns, thumbnail_size, padding
+    ):
         row = index // columns
         col = index % columns
 
-        frame = ttk.Frame(parent,style='TFrame',padding=3)  # 外层padding，选中时会变成蓝色边框
+        frame = ttk.Frame(
+            parent, style="TFrame", padding=3
+        )  # 外层padding，选中时会变成蓝色边框
         frame.grid(row=row, column=col, padx=padding, pady=padding)
         frame.image_path = image_path
 
         file_name = os.path.basename(image_path)
         file_name = file_name[:12] + "..." if len(file_name) > 15 else file_name
         file_size = self.image_info[image_path]
-        size_str = f"{file_size} B" if file_size < 1024 else f"{file_size / 1024:.1f} KB" if file_size < 1024 * 1024 else f"{file_size / (1024 * 1024):.1f} MB"
+        size_str = (
+            f"{file_size} B"
+            if file_size < 1024
+            else (
+                f"{file_size / 1024:.1f} KB"
+                if file_size < 1024 * 1024
+                else f"{file_size / (1024 * 1024):.1f} MB"
+            )
+        )
 
-        thumbnail_label = ttk.Label(frame, text="加载中...", width=thumbnail_size//10)
+        thumbnail_label = ttk.Label(frame, text="加载中...", width=thumbnail_size // 10)
         thumbnail_label.pack()
 
-        text_label = ttk.Label(frame, text=f"{file_name} ({size_str})", wraplength=thumbnail_size,justify='center',padding=(0, 2, 0, 2),style='TLabel')  # 文字上下添加间距
+        text_label = ttk.Label(
+            frame,
+            text=f"{file_name} ({size_str})",
+            wraplength=thumbnail_size,
+            justify="center",
+            padding=(0, 2, 0, 2),
+            style="TLabel",
+        )  # 文字上下添加间距
         text_label.pack()
 
         def load_thumbnail():
@@ -105,8 +138,10 @@ class ImageProcessor:
                 root.after(0, update_thumbnail)
             except Exception as e:
                 print(f"加载缩略图失败: {e}")
+
                 def show_error():
                     thumbnail_label.configure(text="加载失败")
+
                 root.after(0, show_error)
 
         threading.Thread(target=load_thumbnail, daemon=True).start()
@@ -116,31 +151,31 @@ class ImageProcessor:
                 if frame in image_processor.selected_thumbnails:
                     # 取消选中
                     image_processor.selected_thumbnails.remove(frame)
-                    frame.config(style='TFrame')
+                    frame.config(style="TFrame")
                     for child in frame.winfo_children():
                         if isinstance(child, ttk.Label):
-                            child.config(style='TLabel')  # 恢复标签样式
+                            child.config(style="TLabel")  # 恢复标签样式
                 else:
                     # 选中
                     image_processor.selected_thumbnails.append(frame)
-                    frame.config(style='Selected.TFrame')
+                    frame.config(style="Selected.TFrame")
                     for child in frame.winfo_children():
                         if isinstance(child, ttk.Label):
-                            child.config(style='Selected.TLabel')  # 更新标签样式
+                            child.config(style="Selected.TLabel")  # 更新标签样式
             else:
                 # 清除所有选中
                 for f in image_processor.selected_thumbnails:
-                    f.config(style='TFrame')
+                    f.config(style="TFrame")
                     for child in f.winfo_children():
                         if isinstance(child, ttk.Label):
-                            child.config(style='TLabel')
+                            child.config(style="TLabel")
                 image_processor.selected_thumbnails.clear()
                 # 选中当前
                 image_processor.selected_thumbnails.append(frame)
-                frame.config(style='Selected.TFrame')
+                frame.config(style="Selected.TFrame")
                 for child in frame.winfo_children():
                     if isinstance(child, ttk.Label):
-                        child.config(style='Selected.TLabel')
+                        child.config(style="Selected.TLabel")
 
         # 绑定点击事件到 frame
         frame.bind("<Button-1>", on_thumbnail_click)
@@ -153,7 +188,9 @@ class ImageProcessor:
         output_format = output_format_var.get()
         total_images = len(self.image_paths)
 
-        thread = threading.Thread(target=self.process_images, args=(output_format, total_images))
+        thread = threading.Thread(
+            target=self.process_images, args=(output_format, total_images)
+        )
         thread.start()
 
     def process_images(self, output_format, total_images):
@@ -161,10 +198,14 @@ class ImageProcessor:
             self.process_single_image(image_path, output_format, i, total_images)
         self.reset_progress()
         if messagebox.askyesno("完成", "图片处理完成，是否打开输出目录？"):
-            if os.name == 'nt':
+            if os.name == "nt":
                 os.startfile(self.output_folder)
             else:
-                subprocess.Popen(['open', self.output_folder] if os.name == 'posix' else ['xdg-open', self.output_folder])
+                subprocess.Popen(
+                    ["open", self.output_folder]
+                    if os.name == "posix"
+                    else ["xdg-open", self.output_folder]
+                )
 
     def validate_processing(self):
         if not self.image_paths:
@@ -181,9 +222,13 @@ class ImageProcessor:
             compression_quality = int(compression_scale.get())
 
             if output_format == "original":
-                output_path = os.path.join(self.output_folder, os.path.basename(image_path))
+                output_path = os.path.join(
+                    self.output_folder, os.path.basename(image_path)
+                )
             else:
-                output_path = os.path.join(self.output_folder, f"{file_name}.{output_format}")
+                output_path = os.path.join(
+                    self.output_folder, f"{file_name}.{output_format}"
+                )
 
             if os.path.exists(output_path):
                 action = self.handle_file_conflict(output_path)
@@ -220,14 +265,22 @@ class ImageProcessor:
                 message = f"文件 '{os.path.basename(file_path)}' 已存在，要如何处理？"
                 ttk.Label(self, text=message, wraplength=380).pack(pady=10, padx=10)
 
-                ttk.Checkbutton(self, text="应用到所有文件", variable=self.apply_to_all).pack()
+                ttk.Checkbutton(
+                    self, text="应用到所有文件", variable=self.apply_to_all
+                ).pack()
 
                 btn_frame = ttk.Frame(self)
                 btn_frame.pack(pady=10)
 
-                ttk.Button(btn_frame, text="覆盖", command=lambda: self.set_result("overwrite")).pack(side=tk.LEFT, padx=5)
-                ttk.Button(btn_frame, text="跳过", command=lambda: self.set_result("skip")).pack(side=tk.LEFT, padx=5)
-                ttk.Button(btn_frame, text="取消", command=lambda: self.set_result("cancel")).pack(side=tk.LEFT, padx=5)
+                ttk.Button(
+                    btn_frame, text="覆盖", command=lambda: self.set_result("overwrite")
+                ).pack(side=tk.LEFT, padx=5)
+                ttk.Button(
+                    btn_frame, text="跳过", command=lambda: self.set_result("skip")
+                ).pack(side=tk.LEFT, padx=5)
+                ttk.Button(
+                    btn_frame, text="取消", command=lambda: self.set_result("cancel")
+                ).pack(side=tk.LEFT, padx=5)
 
                 self.transient(parent)
                 self.grab_set()
@@ -237,7 +290,7 @@ class ImageProcessor:
                 self.result = (value, self.apply_to_all.get())
                 self.destroy()
 
-        if hasattr(self.handle_file_conflict, 'global_action'):
+        if hasattr(self.handle_file_conflict, "global_action"):
             return self.handle_file_conflict.global_action
 
         dialog = ConflictDialog(root)
@@ -264,7 +317,9 @@ class ImageProcessor:
     def select_output_folder(self):
         self.output_folder = filedialog.askdirectory()
         if self.output_folder:
-            output_folder_label.config(text=f"输出位置: {self.output_folder}", wraplength=300)
+            output_folder_label.config(
+                text=f"输出位置: {self.output_folder}", wraplength=300
+            )
 
     def delete_selected_image(self):
         if self.selected_thumbnails:
@@ -282,42 +337,52 @@ class ImageProcessor:
         self.show_thumbnails()
         image_count_label.config(text="未选择图片")
 
+
 def create_tooltip(widget):
     def show_tooltip(event):
         tooltip = tk.Toplevel()
         tooltip.wm_overrideredirect(True)
         tooltip.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
 
-        label = ttk.Label(tooltip, text=widget.cget("text"), background="#ffffe0", relief="solid", borderwidth=1)
+        label = ttk.Label(
+            tooltip,
+            text=widget.cget("text"),
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+        )
         label.pack()
 
         def hide_tooltip():
             tooltip.destroy()
 
         widget.tooltip = tooltip
-        widget.bind('<Leave>', lambda e: hide_tooltip())
-        tooltip.bind('<Leave>', lambda e: hide_tooltip())
+        widget.bind("<Leave>", lambda e: hide_tooltip())
+        tooltip.bind("<Leave>", lambda e: hide_tooltip())
 
-    widget.bind('<Enter>', show_tooltip)
+    widget.bind("<Enter>", show_tooltip)
+
 
 def update_compression_value(event):
     value = int(compression_scale.get())
     compression_value_label.config(text=f"{value}%")
 
+
 def select_thumbnail(self, event):
     frame = event.widget.master
     if frame not in self.selected_thumbnails:
         self.selected_thumbnails.append(frame)
-        frame.configure(style='Selected.TFrame')
+        frame.configure(style="Selected.TFrame")
         for child in frame.winfo_children():
             if isinstance(child, ttk.Label):
-                child.configure(style='Selected.TLabel')  # 更新标签样式
+                child.configure(style="Selected.TLabel")  # 更新标签样式
     else:
         self.selected_thumbnails.remove(frame)
-        frame.configure(style='TFrame')
+        frame.configure(style="TFrame")
         for child in frame.winfo_children():
             if isinstance(child, ttk.Label):
-                child.configure(style='TLabel')  # 恢复默认样式
+                child.configure(style="TLabel")  # 恢复默认样式
+
 
 root = ThemedTk(theme="yaru")
 root.title("图片格式转换工具")
@@ -326,19 +391,23 @@ root.minsize(600, 700)
 
 # 在样式配置部分增加带边框和padding的选中样式
 style = ttk.Style()
-style.configure('TFrame', padding=5)  # 给所有缩略图容器添加默认padding
-style.configure('Selected.TFrame', 
-               background='#e5f3ff',  # 更浅的蓝色背景
-               bordercolor='#0078d4',  # Windows标志性蓝色
-               borderwidth=1,         # 更明显的边框
-               relief='solid',        # 实线边框
-               padding=3)             # 内层padding营造层次感
-style.configure('TLabel', 
-               background=style.lookup('TFrame', 'background'),  # 继承 TFrame 背景色
-               padding=2)  # 可选，增加内边距
-style.configure('Selected.TLabel', 
-               background='#e5f3ff',  # 与 Selected.TFrame 背景色一致
-               padding=2)            # 可选，增加内边距
+style.configure("TFrame", padding=5)  # 给所有缩略图容器添加默认padding
+style.configure(
+    "Selected.TFrame",
+    background="#e5f3ff",  # 更浅的蓝色背景
+    bordercolor="#0078d4",  # Windows标志性蓝色
+    borderwidth=1,  # 更明显的边框
+    relief="solid",  # 实线边框
+    padding=3,
+)  # 内层padding营造层次感
+style.configure(
+    "TLabel",
+    background=style.lookup("TFrame", "background"),  # 继承 TFrame 背景色
+    padding=2,
+)  # 可选，增加内边距
+style.configure(
+    "Selected.TLabel", background="#e5f3ff", padding=2  # 与 Selected.TFrame 背景色一致
+)  # 可选，增加内边距
 
 
 image_processor = ImageProcessor()
@@ -351,7 +420,9 @@ control_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 10))
 
 file_frame = ttk.Frame(control_frame)
 file_frame.pack(fill=tk.X, pady=(0, 10))
-select_images_button = ttk.Button(file_frame, text="选择图片", command=image_processor.select_images)
+select_images_button = ttk.Button(
+    file_frame, text="选择图片", command=image_processor.select_images
+)
 select_images_button.pack(fill=tk.X, pady=2)
 
 image_count_label = ttk.Label(file_frame, text="未选择图片")
@@ -359,28 +430,36 @@ image_count_label.pack(fill=tk.X, pady=2)
 
 buttons_frame = ttk.Frame(control_frame)
 buttons_frame.pack(fill=tk.X, pady=5)
-delete_button = ttk.Button(buttons_frame, text="删除选中图片", command=image_processor.delete_selected_image)
+delete_button = ttk.Button(
+    buttons_frame, text="删除选中图片", command=image_processor.delete_selected_image
+)
 delete_button.pack(fill=tk.X, pady=2)
 
-clear_button = ttk.Button(buttons_frame, text="清除所有所选", command=image_processor.clear_all_images)
+clear_button = ttk.Button(
+    buttons_frame, text="清除所有所选", command=image_processor.clear_all_images
+)
 clear_button.pack(fill=tk.X, pady=2)
 
 output_frame = ttk.LabelFrame(control_frame, text="输出选项", padding="5")
 output_frame.pack(fill=tk.X, pady=10)
 
-formats = ["original", "jpg", "heic", "heif", "webp", "jxl","avif"]
+formats = ["original", "jpg", "heic", "heif", "webp", "jxl", "avif"]
 output_format_var = tk.StringVar(value="original")
 for format in formats:
     ttk.Radiobutton(
         output_frame,
         text="原始格式" if format == "original" else format.upper(),
         variable=output_format_var,
-        value=format
+        value=format,
     ).pack(anchor=tk.W, pady=2)
-select_output_folder_button = ttk.Button(output_frame, text="选择输出位置", command=image_processor.select_output_folder)
+select_output_folder_button = ttk.Button(
+    output_frame, text="选择输出位置", command=image_processor.select_output_folder
+)
 select_output_folder_button.pack(fill=tk.X, pady=5)
 
-output_folder_label = ttk.Label(output_frame, text="未选择输出位置", anchor=tk.W, width=20)
+output_folder_label = ttk.Label(
+    output_frame, text="未选择输出位置", anchor=tk.W, width=20
+)
 output_folder_label.pack(fill=tk.X)
 
 create_tooltip(output_folder_label)
@@ -398,7 +477,9 @@ compression_value_label.pack(side=tk.BOTTOM)
 compression_scale.bind("<Motion>", update_compression_value)
 compression_scale.bind("<ButtonRelease-1>", update_compression_value)
 
-start_button = ttk.Button(control_frame, text="开始处理", command=image_processor.start_processing)
+start_button = ttk.Button(
+    control_frame, text="开始处理", command=image_processor.start_processing
+)
 start_button.pack(fill=tk.X, pady=10)
 
 progress_frame = ttk.Frame(control_frame)
