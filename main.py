@@ -105,6 +105,7 @@ class ImageProcessor:
         threading.Thread(target=load_thumbnail, daemon=True).start()
 
         def on_thumbnail_click(event):
+            print("点击了缩略图")
             if event.state & 0x4:  # 检查Ctrl键是否被按下
                 if frame in self.selected_thumbnails:
                     self.selected_thumbnails.remove(frame)
@@ -125,27 +126,8 @@ class ImageProcessor:
 
         # 绑定点击事件到 frame
         frame.bind("<Button-1>", on_thumbnail_click)
-        thumbnail_label.bind("<Button-1>", on_thumbnail_click)  # 同时绑定到缩略图标签
-        text_label.bind("<Button-1>", on_thumbnail_click)  # 同时绑定到文本标签
-
-        def on_thumbnail_click(event):
-            if event.state & 0x4:
-                if frame in self.selected_thumbnails:
-                    self.selected_thumbnails.remove(frame)
-                    frame.config(style='TFrame')
-                else:
-                    self.selected_thumbnails.append(frame)
-                    frame.config(style='Selected.TFrame')
-            else:
-                if frame not in self.selected_thumbnails:
-                    self.selected_thumbnails.clear()
-                    self.selected_thumbnails.append(frame)
-                    frame.config(style='Selected.TFrame')
-                else:
-                    self.selected_thumbnails.clear()
-                    frame.config(style='TFrame')
-
-        frame.bind("<Button-1>", on_thumbnail_click)
+        thumbnail_label.bind("<Button-1>", lambda event: on_thumbnail_click(event))
+        text_label.bind("<Button-1>", lambda event: on_thumbnail_click(event))
 
     def start_processing(self):
         if not self.validate_processing():
@@ -310,7 +292,7 @@ root.geometry("800x650")
 root.minsize(600, 650)
 
 style = ttk.Style()
-style.configure('Selected.TFrame', background='#add8e6', borderwidth=2, relief='solid', bordercolor='#0000ff')
+style.configure('Selected.TFrame', background='#add8e6')
 style.map('Selected.TFrame', background=[('selected', '#add8e6')], bordercolor=[('selected', '#0000ff')])
 
 image_processor = ImageProcessor()
