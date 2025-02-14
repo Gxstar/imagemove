@@ -29,7 +29,7 @@ class ImageProcessor:
         self.image_paths = list(
             filedialog.askopenfilenames(
                 filetypes=[
-                    ("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.jxl")
+                    ("Image files", "*.jpg;*.jpeg;*.png;*.heic;*.heif;*.webp;*.jxl;*.avif")
                 ]
             )
         )
