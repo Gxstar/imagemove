@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from tkinter import ttk
 from ttkthemes import ThemedTk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageOps
 import pillow_heif
 import os
 import subprocess
@@ -148,6 +148,8 @@ class ImageProcessor:
                     img_tk = self.thumbnail_cache[image_path]
                 else:
                     with Image.open(image_path) as img:
+                        # 修复方向问题
+                        img = ImageOps.exif_transpose(img)  # 新增代码
                         img.thumbnail((THUMBNAIL_SIZE, THUMBNAIL_SIZE))
                         img_tk = ImageTk.PhotoImage(img)
                         self.thumbnail_cache[image_path] = img_tk
@@ -262,6 +264,8 @@ class ImageProcessor:
 
             if output_format == "original" and compression_quality == 100:
                 shutil.copy2(image_path, output_path)
+            elif output_format == "朋友圈适用":
+                self.save_image_for_wechat(image_path, output_path, compression_quality)
             else:
                 self.save_image(image_path, output_path, output_format, compression_quality)
 
@@ -275,17 +279,40 @@ class ImageProcessor:
         """获取输出路径"""
         if output_format == "original":
             return Path(self.output_folder) / os.path.basename(image_path)
+        elif output_format == "朋友圈适用":
+            return Path(self.output_folder) / f"{file_name}_wechat.jpg"
         else:
             return Path(self.output_folder) / f"{file_name}.{output_format}"
 
     def save_image(self, image_path, output_path, output_format, compression_quality):
         """保存图片"""
         with Image.open(image_path) as img:
+            img = ImageOps.exif_transpose(img)  # 新增代码
             exif_data = img.info.get("exif")
             if compression_quality < 100:
                 img.save(output_path, quality=compression_quality, exif=exif_data) if output_format == "webp" else img.save(output_path, quality=compression_quality)
             else:
                 img.save(output_path, lossless=True, exif=exif_data) if output_format == "webp" else img.save(output_path, lossless=True)
+
+    def save_image_for_wechat(self, image_path, output_path, compression_quality):
+        """保存为朋友圈适用格式的图片"""
+        with Image.open(image_path) as img:
+            # 计算新的分辨率
+            img = ImageOps.exif_transpose(img)
+            exif_data = img.info.get("exif")
+            width, height = img.size
+            if width > height:
+                new_width = int(width * 1080 / height)
+                new_height = 1080
+            else:
+                new_width = 1080
+                new_height = int(height * 1080 / width)
+
+            # 调整图片大小
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+
+            # 保存图片
+            img.save(output_path, format="JPEG", quality=compression_quality,exif=exif_data)
 
     def handle_file_conflict(self, file_path):
         """处理文件冲突"""
@@ -465,13 +492,13 @@ class ImageConverterApp:
         output_frame = ttk.LabelFrame(parent, text="输出选项", padding="5")
         output_frame.pack(fill=tk.X, pady=10)
 
-        formats = ["original", "jpg", "heic", "heif", "webp", "avif"]
+        formats = ["original", "jpg", "heic", "heif", "webp", "avif", "朋友圈适用"]
         global output_format_var
         output_format_var = tk.StringVar(value="original")
         for format in formats:
             ttk.Radiobutton(
                 output_frame,
-                text="原始格式" if format == "original" else format.upper(),
+                text="原始格式" if format == "original" else format.upper() if format != "朋友圈适用" else "朋友圈适用",
                 variable=output_format_var,
                 value=format,
             ).pack(anchor=tk.W, pady=2)
@@ -502,7 +529,6 @@ class ImageConverterApp:
 
         compression_scale.bind("<Motion>", self.update_compression_value)
         compression_scale.bind("<ButtonRelease-1>", self.update_compression_value)
-
         
 
     def setup_progress_frame(self, parent):
