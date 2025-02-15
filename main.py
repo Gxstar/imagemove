@@ -81,8 +81,19 @@ class ImageProcessor:
 
         scrollable_frame.bind("<Configure>", on_configure)
 
+        # 绑定鼠标滚轮事件
+        def on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind_all("<MouseWheel>", on_mousewheel)
+
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+
+        for index, image_path in enumerate(self.image_paths):
+            self.create_thumbnail(
+                scrollable_frame, image_path, index, columns, THUMBNAIL_SIZE, PADDING
+            )
 
         for index, image_path in enumerate(self.image_paths):
             self.create_thumbnail(
