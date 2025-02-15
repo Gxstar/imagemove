@@ -50,6 +50,11 @@ class ImageProcessor:
         if self.image_paths:
             self.image_info = {path: os.path.getsize(path) for path in self.image_paths}
             self.show_thumbnails()
+             # 更新 image_count_label 的文本
+            image_count_label.config(text=f"已选择 {len(self.image_paths)} 张图片")
+        else:
+            # 如果没有选择图片，恢复默认提示
+            image_count_label.config(text="未选择图片")
 
     def show_thumbnails(self):
         """显示缩略图"""
@@ -366,12 +371,14 @@ class ImageProcessor:
                 frame.destroy()
             self.selected_thumbnails.clear()
             self.show_thumbnails()
-
+            # 更新 image_count_label 的文本
+            image_count_label.config(text=f"已选择 {len(self.image_paths)} 张图片")
     def clear_all_images(self):
         """清除所有图片"""
         self.image_paths = []
         self.show_thumbnails()
-
+        # 更新 image_count_label 的文本
+        image_count_label.config(text="未选择图片")
 
 class ImageConverterApp:
     """图片转换应用的 UI 部分"""
@@ -491,22 +498,24 @@ class ImageConverterApp:
         compression_scale.pack(side=tk.TOP, fill=tk.X, expand=True)
 
         compression_value_label = ttk.Label(output_frame, text=f"{DEFAULT_COMPRESSION}%")
-        compression_value_label.pack(side=tk.BOTTOM)
+        compression_value_label.pack()
 
         compression_scale.bind("<Motion>", self.update_compression_value)
         compression_scale.bind("<ButtonRelease-1>", self.update_compression_value)
 
-        start_button = ttk.Button(
-            output_frame, text="开始处理", command=self.image_processor.start_processing
-        )
-        start_button.pack(fill=tk.X, pady=10)
+        
 
     def setup_progress_frame(self, parent):
         """设置进度条区域"""
+        
         progress_frame = ttk.Frame(parent)
         progress_frame.pack(fill=tk.X, pady=5)
 
         global progress_bar, progress_label
+        start_button = ttk.Button(
+            progress_frame, text="开始处理", command=self.image_processor.start_processing
+        )
+        start_button.pack(fill=tk.X, pady=10)
         progress_bar = ttk.Progressbar(progress_frame, orient="horizontal", mode="determinate")
         progress_bar.pack(fill=tk.X)
 
@@ -545,6 +554,6 @@ class ImageConverterApp:
 
 
 if __name__ == "__main__":
-    root = ThemedTk(theme="yaru")
+    root = ThemedTk(theme="arc")
     app = ImageConverterApp(root)
     root.mainloop()
