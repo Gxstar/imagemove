@@ -8,10 +8,17 @@ import os
 import subprocess
 import shutil
 import threading
+import sys
+from pathlib import Path
 
 # 注册 HEIF 和 AVIF 格式支持
-pillow_heif.register_heif_opener()
-pillow_heif.register_avif_opener()
+try:
+    pillow_heif.register_heif_opener()
+    pillow_heif.register_avif_opener()
+except ImportError:
+    print("pillow_heif 未安装，HEIC/AVIF 格式支持不可用")
+except Exception as e:
+    print(f"初始化 HEIC/AVIF 支持时出错: {e}")
 
 # 常量定义
 THUMBNAIL_SIZE = 120
@@ -203,14 +210,13 @@ class ImageProcessor:
 
     def open_output_folder(self):
         """打开输出文件夹"""
-        if os.name == "nt":
+        if os.name == "nt":  # Windows
             os.startfile(self.output_folder)
-        else:
-            subprocess.Popen(
-                ["open", self.output_folder]
-                if os.name == "posix"
-                else ["xdg-open", self.output_folder]
-            )
+        elif os.name == "posix":  # macOS 或 Linux
+            if sys.platform == "darwin":  # macOS
+                subprocess.Popen(["open", self.output_folder])
+            else:  # Linux
+                subprocess.Popen(["xdg-open", self.output_folder])
 
     def validate_processing(self):
         """验证处理条件"""
@@ -244,15 +250,17 @@ class ImageProcessor:
                 self.save_image(image_path, output_path, output_format, compression_quality)
 
             self.update_progress(current, total)
+        except PermissionError:
+            messagebox.showerror("错误", f"没有权限访问文件: {image_path}")
         except Exception as e:
             messagebox.showerror("错误", f"处理图片 {image_path} 时出错: {str(e)}")
 
     def get_output_path(self, image_path, output_format, file_name):
         """获取输出路径"""
         if output_format == "original":
-            return os.path.join(self.output_folder, os.path.basename(image_path))
+            return Path(self.output_folder) / os.path.basename(image_path)
         else:
-            return os.path.join(self.output_folder, f"{file_name}.{output_format}")
+            return Path(self.output_folder) / f"{file_name}.{output_format}"
 
     def save_image(self, image_path, output_path, output_format, compression_quality):
         """保存图片"""
