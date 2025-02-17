@@ -24,7 +24,7 @@ except Exception as e:
 THUMBNAIL_SIZE = 120
 PADDING = 5
 SCROLLBAR_WIDTH = 20
-DEFAULT_COMPRESSION = 100
+DEFAULT_COMPRESSION = 95
 
 
 class ImageProcessor:
@@ -292,7 +292,7 @@ class ImageProcessor:
             if compression_quality < 100:
                 img.save(output_path, quality=compression_quality, exif=exif_data) if output_format == "webp" else img.save(output_path, quality=compression_quality)
             else:
-                img.save(output_path, lossless=True, exif=exif_data) if output_format == "webp" else img.save(output_path, lossless=True)
+                img.save(output_path, quality=compression_quality, lossless=True, exif=exif_data) if output_format == "webp" else img.save(output_path, lossless=True)
 
     def save_image_for_wechat(self, image_path, output_path, compression_quality):
         """保存为朋友圈适用格式的图片"""
