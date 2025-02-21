@@ -50,7 +50,7 @@ class ImageProcessor:
         if self.image_paths:
             self.image_info = {path: os.path.getsize(path) for path in self.image_paths}
             self.show_thumbnails()
-             # 更新 image_count_label 的文本
+            # 更新 image_count_label 的文本
             image_count_label.config(text=f"已选择 {len(self.image_paths)} 张图片")
         else:
             # 如果没有选择图片，恢复默认提示
@@ -107,7 +107,9 @@ class ImageProcessor:
 
         thumbnail_frame.update_idletasks()
 
-    def create_thumbnail(self, parent, image_path, index, columns, thumbnail_size, padding):
+    def create_thumbnail(
+        self, parent, image_path, index, columns, thumbnail_size, padding
+    ):
         """创建单个缩略图"""
         row = index // columns
         col = index % columns
@@ -137,11 +139,16 @@ class ImageProcessor:
         self.load_thumbnail_async(thumbnail_label, image_path)
 
         frame.bind("<Button-1>", lambda event: self.on_thumbnail_click(event, frame))
-        thumbnail_label.bind("<Button-1>", lambda event: self.on_thumbnail_click(event, frame))
-        text_label.bind("<Button-1>", lambda event: self.on_thumbnail_click(event, frame))
+        thumbnail_label.bind(
+            "<Button-1>", lambda event: self.on_thumbnail_click(event, frame)
+        )
+        text_label.bind(
+            "<Button-1>", lambda event: self.on_thumbnail_click(event, frame)
+        )
 
     def load_thumbnail_async(self, thumbnail_label, image_path):
         """异步加载缩略图"""
+
         def load_thumbnail():
             try:
                 if image_path in self.thumbnail_cache:
@@ -218,9 +225,10 @@ class ImageProcessor:
         )
         thread.start()
 
-    def process_images(self, output_format, total_images):
+    def process_images(self, output_format, total_images, image_paths=None):
         """批量处理图片"""
-        for i, image_path in enumerate(self.image_paths, start=1):
+        image_paths = image_paths or self.image_paths
+        for i, image_path in enumerate(image_paths, start=1):
             self.process_single_image(image_path, output_format, i, total_images)
         self.reset_progress()
         if messagebox.askyesno("完成", "图片处理完成，是否打开输出目录？"):
@@ -267,13 +275,42 @@ class ImageProcessor:
             elif output_format == "朋友圈适用":
                 self.save_image_for_wechat(image_path, output_path, compression_quality)
             else:
-                self.save_image(image_path, output_path, output_format, compression_quality)
+                self.save_image(
+                    image_path, output_path, output_format, compression_quality
+                )
 
             self.update_progress(current, total)
         except PermissionError:
             messagebox.showerror("错误", f"没有权限访问文件: {image_path}")
         except Exception as e:
             messagebox.showerror("错误", f"处理图片 {image_path} 时出错: {str(e)}")
+
+    def process_selected_images(self):
+        """处理选中的图片"""
+        if not self.validate_processing():
+            return
+        output_format = output_format_var.get()
+        selected_image_paths = [frame.image_path for frame in self.selected_thumbnails]
+        total_images = len(selected_image_paths)
+
+        if not selected_image_paths:
+            messagebox.showerror("错误", "请选择要处理的图片")
+            return
+
+        thread = threading.Thread(
+            target=self.process_images,
+            args=(output_format, total_images, selected_image_paths),
+        )
+        thread.start()
+
+    def process_images(self, output_format, total_images, image_paths=None):
+        """批量处理图片"""
+        image_paths = image_paths or self.image_paths
+        for i, image_path in enumerate(image_paths, start=1):
+            self.process_single_image(image_path, output_format, i, total_images)
+        self.reset_progress()
+        if messagebox.askyesno("完成", "图片处理完成，是否打开输出目录？"):
+            self.open_output_folder()
 
     def get_output_path(self, image_path, output_format, file_name):
         """获取输出路径"""
@@ -290,9 +327,22 @@ class ImageProcessor:
             img = ImageOps.exif_transpose(img)  # 新增代码
             exif_data = img.info.get("exif")
             if compression_quality < 100:
-                img.save(output_path, quality=compression_quality, exif=exif_data) if output_format == "webp" else img.save(output_path, quality=compression_quality)
+                (
+                    img.save(output_path, quality=compression_quality, exif=exif_data)
+                    if output_format == "webp"
+                    else img.save(output_path, quality=compression_quality)
+                )
             else:
-                img.save(output_path, quality=compression_quality, lossless=True, exif=exif_data) if output_format == "webp" else img.save(output_path, lossless=True)
+                (
+                    img.save(
+                        output_path,
+                        quality=compression_quality,
+                        lossless=True,
+                        exif=exif_data,
+                    )
+                    if output_format == "webp"
+                    else img.save(output_path, lossless=True)
+                )
 
     def save_image_for_wechat(self, image_path, output_path, compression_quality):
         """保存为朋友圈适用格式的图片"""
@@ -312,10 +362,13 @@ class ImageProcessor:
             img = img.resize((new_width, new_height), Image.LANCZOS)
 
             # 保存图片
-            img.save(output_path, format="JPEG", quality=compression_quality,exif=exif_data)
+            img.save(
+                output_path, format="JPEG", quality=compression_quality, exif=exif_data
+            )
 
     def handle_file_conflict(self, file_path):
         """处理文件冲突"""
+
         class ConflictDialog(tk.Toplevel):
             def __init__(self, parent):
                 super().__init__(parent)
@@ -400,12 +453,14 @@ class ImageProcessor:
             self.show_thumbnails()
             # 更新 image_count_label 的文本
             image_count_label.config(text=f"已选择 {len(self.image_paths)} 张图片")
+
     def clear_all_images(self):
         """清除所有图片"""
         self.image_paths = []
         self.show_thumbnails()
         # 更新 image_count_label 的文本
         image_count_label.config(text="未选择图片")
+
 
 class ImageConverterApp:
     """图片转换应用的 UI 部分"""
@@ -418,8 +473,8 @@ class ImageConverterApp:
     def setup_ui(self):
         """设置 UI 布局"""
         self.root.title("图片格式转换工具")
-        self.root.geometry("800x700")
-        self.root.minsize(600, 700)
+        self.root.geometry("800x750")
+        self.root.minsize(600, 720)
 
         style = ttk.Style()
         style.configure("TFrame", padding=5)
@@ -436,9 +491,7 @@ class ImageConverterApp:
             background=style.lookup("TFrame", "background"),
             padding=2,
         )
-        style.configure(
-            "Selected.TLabel", background="#e5f3ff", padding=2
-        )
+        style.configure("Selected.TLabel", background="#e5f3ff", padding=2)
 
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -478,12 +531,16 @@ class ImageConverterApp:
         buttons_frame.pack(fill=tk.X, pady=5)
 
         delete_button = ttk.Button(
-            buttons_frame, text="删除选中图片", command=self.image_processor.delete_selected_image
+            buttons_frame,
+            text="删除选中图片",
+            command=self.image_processor.delete_selected_image,
         )
         delete_button.pack(fill=tk.X, pady=2)
 
         clear_button = ttk.Button(
-            buttons_frame, text="清除所有所选", command=self.image_processor.clear_all_images
+            buttons_frame,
+            text="清除所有所选",
+            command=self.image_processor.clear_all_images,
         )
         clear_button.pack(fill=tk.X, pady=2)
 
@@ -498,13 +555,19 @@ class ImageConverterApp:
         for format in formats:
             ttk.Radiobutton(
                 output_frame,
-                text="原始格式" if format == "original" else format.upper() if format != "朋友圈适用" else "朋友圈适用",
+                text=(
+                    "原始格式"
+                    if format == "original"
+                    else format.upper() if format != "朋友圈适用" else "朋友圈适用"
+                ),
                 variable=output_format_var,
                 value=format,
             ).pack(anchor=tk.W, pady=2)
 
         select_output_folder_button = ttk.Button(
-            output_frame, text="选择输出位置", command=self.image_processor.select_output_folder
+            output_frame,
+            text="选择输出位置",
+            command=self.image_processor.select_output_folder,
         )
         select_output_folder_button.pack(fill=tk.X, pady=5)
 
@@ -520,36 +583,51 @@ class ImageConverterApp:
         compression_label.pack(fill=tk.X, pady=2)
 
         global compression_scale, compression_value_label
-        compression_scale = ttk.Scale(output_frame, from_=25, to=100, orient=tk.HORIZONTAL)
+        compression_scale = ttk.Scale(
+            output_frame, from_=25, to=100, orient=tk.HORIZONTAL
+        )
         compression_scale.set(DEFAULT_COMPRESSION)
         compression_scale.pack(side=tk.TOP, fill=tk.X, expand=True)
 
-        compression_value_label = ttk.Label(output_frame, text=f"{DEFAULT_COMPRESSION}%")
+        compression_value_label = ttk.Label(
+            output_frame, text=f"{DEFAULT_COMPRESSION}%"
+        )
         compression_value_label.pack()
 
         compression_scale.bind("<Motion>", self.update_compression_value)
         compression_scale.bind("<ButtonRelease-1>", self.update_compression_value)
-        
 
     def setup_progress_frame(self, parent):
         """设置进度条区域"""
-        
+
         progress_frame = ttk.Frame(parent)
         progress_frame.pack(fill=tk.X, pady=5)
 
         global progress_bar, progress_label
         start_button = ttk.Button(
-            progress_frame, text="开始处理", command=self.image_processor.start_processing
+            progress_frame,
+            text="处理所有",
+            command=self.image_processor.start_processing,
         )
-        start_button.pack(fill=tk.X, pady=10)
-        progress_bar = ttk.Progressbar(progress_frame, orient="horizontal", mode="determinate")
-        progress_bar.pack(fill=tk.X)
+        start_button.pack(fill=tk.X, pady=0)
 
+        process_selected_button = ttk.Button(
+            progress_frame,
+            text="处理选中",
+            command=self.image_processor.process_selected_images,
+        )
+        process_selected_button.pack(fill=tk.X, pady=10)
+
+        progress_bar = ttk.Progressbar(
+            progress_frame, orient="horizontal", mode="determinate"
+        )
+        progress_bar.pack(fill=tk.X)
         progress_label = ttk.Label(progress_frame, text="0/0 (0.0%)")
         progress_label.pack()
 
     def create_tooltip(self, widget):
         """创建工具提示"""
+
         def show_tooltip(event):
             tooltip = tk.Toplevel()
             tooltip.wm_overrideredirect(True)
