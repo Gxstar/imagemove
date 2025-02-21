@@ -21,7 +21,7 @@
 ```bash
 ### 打包命令
 
-nuitka --standalone --follow-imports --enable-plugin=tk-inter --include-module=PIL --include-package-data=ttkthemes --include-package=ttkthemes --windows-disable-console --onefile --output-dir=out --output-filename=imagemove --remove-output main.py
+nuitka --standalone --follow-imports --enable-plugin=tk-inter --include-module=PIL --include-package-data=ttkthemes --include-package=ttkthemes --windows-console-mode=disable --onefile --output-dir=out --output-filename=imagemove --remove-output main.py
 
 ### 依赖库
 
